@@ -2,6 +2,7 @@ from src.loader import SwissGridLoader
 from src.analyzer import WinterGapAnalyzer
 from src.visualizer import SwissGridVisualizer
 from src.border_analyzer import BorderAnalyzer
+from src.transit_analyzer import TransitAnalyzer
 import os
 
 def main():
@@ -17,20 +18,19 @@ def main():
         # 1. Analyse Winter Gap
         analyzer = WinterGapAnalyzer(df)
         df_analyzed = analyzer.analyze()
-        
         visualizer = SwissGridVisualizer(df_analyzed)
-        
-        # --- A. Vue Brute (Technique) ---
-        # Affiche le bruit, les pics horaires, la réalité physique 15min/1h
+        # --- A. Vue Brute (Technique) : Affiche le bruit, les pics horaires, la réalité physique 15min/1h ---
         visualizer.plot_raw_data()
-        
-        # --- B. Vue Lissée (Stratégique) ---
-        # Affiche la tendance lourde (Winter Gap)
+        # --- B. Vue Lissée (Stratégique) : Affiche la tendance globale ---
         visualizer.plot_smoothed_trend()
         
         # 2. Analyse des Frontières
         border = BorderAnalyzer(df)
         border.plot_cross_border_flows()
+
+        # 3. Analyse du Transit
+        transit = TransitAnalyzer(df)
+        transit.plot_transit_vs_consumption()
         
     else:
         print("❌ Problème de chargement.")

@@ -7,7 +7,7 @@ class BorderAnalyzer:
         self.df = df
 
     def plot_cross_border_flows(self):
-        print("🌍 Analyse des flux transfrontaliers...")
+        print("Analyse des flux transfrontaliers...")
         
         neighbors = {
             'DE': 'Allemagne (DE)', 
@@ -65,5 +65,5 @@ class BorderAnalyzer:
         ax.legend(loc='upper left', frameon=True)
         
         plt.tight_layout()
-        print("✅ Graphique Flux Frontaliers généré.")
+        print("Graphique Flux Frontaliers généré.")
         plt.show()
