@@ -1,71 +1,104 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import numpy as np
 
 class TransitAnalyzer:
     def __init__(self, df):
         self.df = df
 
-    def plot_transit_vs_consumption(self):
-        print("Analyse du rôle de Hub (Transit)...")
+    def _prepare_data(self):
+        """Prépare toutes les métriques (Flux Total, Transit Pur, Conso)"""
+        # Récupération des colonnes frontières
+        cols_borders = [c for c in self.df.columns if "Verbundaustausch" in str(c)]
         
-        # 1. Identification de la colonne Transit
-        # Dans ton fichier, la colonne s'appelle simplement "Transit" (Colonne S / Index 18 environ)
-        col_transit = next((c for c in self.df.columns if "Transit" == str(c).strip()), None)
-        
-        if not col_transit:
-            # Recherche plus large si le nom exact change
-            col_transit = next((c for c in self.df.columns if "Transit" in str(c)), None)
-        
-        if not col_transit:
-            print("⚠️ Colonne 'Transit' introuvable dans le fichier.")
-            print("Colonnes disponibles :", self.df.columns.tolist())
-            return
+        if not cols_borders:
+            print("⚠️ Erreur: Colonnes frontières introuvables.")
+            return None
 
-        # 2. Préparation des données (kWh -> MW)
-        # On crée un DF temporaire pour le calcul
+        # Séparation Import / Export
+        cols_export = [c for c in cols_borders if "CH->" in str(c)]
+        cols_import = [c for c in cols_borders if "->CH" in str(c)]
+
+        # Sommes horaires (en kWh)
+        total_export_kwh = self.df[cols_export].sum(axis=1)
+        total_import_kwh = self.df[cols_import].sum(axis=1)
+
+        # --- CALCULS ---
+        # 1. Flux Total (Activité du réseau) = Import + Export
+        total_flux_kwh = total_import_kwh + total_export_kwh
+        
+        # 2. Transit Pur (Modèle Ingénieur) = min(Import, Export)
+        transit_pure_kwh = np.minimum(total_import_kwh, total_export_kwh)
+
+        # --- DATAFRAME ---
         df_plot = pd.DataFrame(index=self.df.index)
+        df_plot['Total_Flux_MW'] = total_flux_kwh.resample('h').sum() / 1000
+        df_plot['Transit_Pure_MW'] = transit_pure_kwh.resample('h').sum() / 1000
         
-        # Conversion kWh 15min -> MW moyen horaire
-        df_plot['Transit_MW'] = self.df[col_transit].resample('h').sum() / 1000
-        df_plot['Consumption_MW'] = self.df['Consumption_MW'] # Déjà calculé dans le loader en principe
-        
-        # Si 'Consumption_MW' n'est pas dans le DF (dépend de ton loader), on le recalcule :
-        if 'Consumption_MW' not in self.df.columns:
-             # On cherche la colonne consommation (souvent index 3 ou par nom)
-             col_conso = next((c for c in self.df.columns if "verbrauchte" in str(c).lower() and "end" not in str(c).lower()), None)
-             if col_conso:
-                 df_plot['Consumption_MW'] = self.df[col_conso].resample('h').sum() / 1000
+        # Récupération Conso
+        col_conso = next((c for c in self.df.columns if "Summe verbrauchte" in str(c)), None)
+        if col_conso:
+             df_plot['Consumption_MW'] = self.df[col_conso].resample('h').sum() / 1000
+        elif 'Consumption_MW' in self.df.columns:
+             df_plot['Consumption_MW'] = self.df['Consumption_MW']
 
-        # 3. Lissage (7 jours) pour la lisibilité
-        df_smooth = df_plot.rolling(window=168, center=True).mean().dropna()
+        return df_plot
 
-        # 4. Visualisation
+    def plot_total_activity_raw(self):
+        """Graphe 1 : L'Activité Brute (La Nervosité)"""
+        print("Génération Graphe : Activité Ttansfrontalière Totale (Brut)...")
+        df_plot = self._prepare_data()
+        if df_plot is None: return
+
         sns.set_theme(style="whitegrid")
         plt.figure(figsize=(14, 7))
 
-        # Tracé de la Consommation (La référence)
-        plt.plot(df_smooth.index, df_smooth['Consumption_MW'], 
-                 label="Consommation Suisse (Besoin interne)", color='#c0392b', lw=2)
+        plt.plot(df_plot.index, df_plot['Consumption_MW'], label="Conso", color='#c0392b', lw=0.5, alpha=0.8)
+        plt.plot(df_plot.index, df_plot['Total_Flux_MW'], label="Flux Total (Imp+Exp)", color='#8e44ad', lw=0.5, alpha=0.8)
 
-        # Tracé du Transit (Le Service rendu à l'Europe)
-        plt.plot(df_smooth.index, df_smooth['Transit_MW'], 
-                 label="Transit (Flux traversant)", color='#f1c40f', lw=2, linestyle='--')
+        plt.title("Le 'Pouls' du Réseau : Volatilité Horaire des Échanges (2025)", fontsize=16, fontweight='bold')
+        plt.ylabel("Puissance (MW)")
+        plt.legend(loc='upper right')
+        plt.tight_layout()
+        plt.show()
 
-        # Remplissage sous la courbe Transit pour montrer le volume
-        plt.fill_between(df_smooth.index, df_smooth['Transit_MW'], color='#f1c40f', alpha=0.15)
+    def plot_total_activity_smoothed(self):
+        """Graphe 2 : L'Activité Lissée (Le Volume)"""
+        print("Génération Graphe : Activité Transfrontalière Totale (Lissée)...")
+        df_plot = self._prepare_data()
+        if df_plot is None: return
+        
+        df_smooth = df_plot.rolling(window=168, center=True).mean().dropna()
 
-        plt.title("La Suisse, Carrefour de l'Europe : Transit vs Consommation (2025)", fontsize=16, fontweight='bold')
-        plt.ylabel("Puissance Moyenne (MW)")
+        plt.figure(figsize=(14, 7))
+        plt.plot(df_smooth.index, df_smooth['Consumption_MW'], label="Conso", color='#c0392b', lw=2)
+        plt.plot(df_smooth.index, df_smooth['Total_Flux_MW'], label="Flux Total", color='#8e44ad', lw=2)
+        plt.fill_between(df_smooth.index, df_smooth['Total_Flux_MW'], df_smooth['Consumption_MW'],
+                         where=(df_smooth['Total_Flux_MW'] > df_smooth['Consumption_MW']), color='#8e44ad', alpha=0.15)
+        
+        plt.title("La Plaque Tournante : Flux Total vs Consommation (Lissé 7j)", fontsize=16, fontweight='bold')
+        plt.ylabel("Puissance (MW)")
         plt.legend()
         plt.tight_layout()
-        
-        # Annotation pour expliquer
-        max_transit = df_smooth['Transit_MW'].max()
-        plt.text(df_smooth.index[len(df_smooth)//2], max_transit, 
-                 "Le réseau suisse transporte\ndes volumes énormes pour ses voisins", 
-                 ha='center', va='bottom', fontsize=10, color='#f39c12', fontweight='bold',
-                 bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
+        plt.show()
 
-        print("Graphique Transit généré.")
+    def plot_pure_transit(self):
+        """Graphe 3 : Le Transit Pur (Ce qui ne fait que traverser)"""
+        print("Génération Graphe : Transit Pur (Le Vrai Hub)...")
+        df_plot = self._prepare_data()
+        if df_plot is None: return
+        
+        # On lisse aussi celui-là pour bien voir la tendance par rapport à la Conso
+        df_smooth = df_plot.rolling(window=168, center=True).mean().dropna()
+
+        plt.figure(figsize=(14, 7))
+        plt.plot(df_smooth.index, df_smooth['Consumption_MW'], label="Consommation Suisse", color='#c0392b', lw=2)
+        plt.plot(df_smooth.index, df_smooth['Transit_Pure_MW'], label="Transit Pur (Flux Traversant)", color='#2980b9', lw=2)
+        plt.fill_between(df_smooth.index, df_smooth['Transit_Pure_MW'], color='#2980b9', alpha=0.2)
+
+        plt.title("Le 'Vrai' Transit : Énergie traversant la Suisse sans être consommée (Lissé 7j)", fontsize=16, fontweight='bold')
+        plt.ylabel("Puissance (MW)")
+        plt.legend(loc='upper right')
+        plt.tight_layout()
         plt.show()

@@ -3,6 +3,7 @@ from src.analyzer import WinterGapAnalyzer
 from src.visualizer import SwissGridVisualizer
 from src.border_analyzer import BorderAnalyzer
 from src.transit_analyzer import TransitAnalyzer
+from src.cost_analyzer import CostAnalyzer
 import os
 
 def main():
@@ -30,10 +31,19 @@ def main():
 
         # 3. Analyse du Transit
         transit = TransitAnalyzer(df)
-        transit.plot_transit_vs_consumption()
+        # --- A. Vue Brute (Technique) : Affiche le bruit, les pics horaires, la réalité physique 15min/1h ---
+        transit.plot_total_activity_raw()
+        # --- B. Vue Lissée (Stratégique) : Affiche la tendance globale ---
+        transit.plot_total_activity_smoothed()
+        # --- C. Transit pur (Le Vrai Hub) ---
+        transit.plot_pure_transit()
+
+        # 4. Analyse Financière
+        cost = CostAnalyzer(df)
+        cost.plot_financial_balance()
         
     else:
-        print("❌ Problème de chargement.")
+        print("Problème de chargement.")
 
 if __name__ == "__main__":
     main()
