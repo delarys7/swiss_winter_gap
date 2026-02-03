@@ -4,6 +4,7 @@ from src.visualizer import SwissGridVisualizer
 from src.border_analyzer import BorderAnalyzer
 from src.transit_analyzer import TransitAnalyzer
 from src.cost_analyzer import CostAnalyzer
+from src.adavanced_stats import AdvancedAnalyzer
 import os
 
 def main():
@@ -41,6 +42,16 @@ def main():
         # 4. Analyse Financière
         cost = CostAnalyzer(df)
         cost.plot_financial_balance()
+
+        # 5. ANALYSES AVANCÉES (NOUVEAU)
+        print("\n--- Démarrage des Analyses Statistiques Avancées ---")
+        adv = AdvancedAnalyzer(df)
+        # --- A. La Monotone (Indispensable pour le Winter Gap) ---
+        adv.plot_duration_curve()
+        # --- B. Le Heatmap (Visuellement top pour le rapport) ---
+        adv.plot_seasonal_heatmap()
+        # --- C. Corrélation Prix (Pour la partie éco) ---
+        adv.plot_price_correlation()
         
     else:
         print("Problème de chargement.")
