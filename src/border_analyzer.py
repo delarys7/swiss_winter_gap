@@ -7,53 +7,53 @@ class BorderAnalyzer:
         self.df = df
 
     def plot_cross_border_flows(self):
-        print("Analyse des flux transfrontaliers...")
+        print("Analyse des flux transfrontaliers (Basé sur Loader)...")
         
-        neighbors = {
-            'DE': 'Allemagne (DE)', 
-            'FR': 'France (FR)', 
-            'IT': 'Italie (IT)', 
-            'AT': 'Autriche (AT)'
+        # 1. Sélection des colonnes déjà calculées par le Loader
+        # On mappe les codes pays vers les noms d'affichage
+        neighbors_map = {
+            'Net_Flow_DE_MW': 'Allemagne (DE)',
+            'Net_Flow_FR_MW': 'France (FR)',
+            'Net_Flow_IT_MW': 'Italie (IT)',
+            'Net_Flow_AT_MW': 'Autriche (AT)'
         }
         
-        df_net_mw = pd.DataFrame(index=self.df.index)
-
-        # Recherche des colonnes (Export - Import)
-        for code, name in neighbors.items():
-            col_export = next((c for c in self.df.columns if f"CH->{code}" in str(c)), None)
-            col_import = next((c for c in self.df.columns if f"{code}->CH" in str(c)), None)
-            
-            if col_export and col_import:
-                # Calcul Net (MW)
-                net_kwh = self.df[col_export] - self.df[col_import]
-                df_net_mw[name] = net_kwh.resample('h').sum() / 1000
-
-        if df_net_mw.empty:
-            print("❌ ERREUR : Pas de données frontières.")
+        # On vérifie si les colonnes existent
+        available_cols = [c for c in neighbors_map.keys() if c in self.df.columns]
+        
+        if not available_cols:
+            print("❌ ERREUR : Pas de colonnes 'Net_Flow_XX_MW' trouvées. Vérifiez le Loader.")
             return
 
-        # Lissage 7 jours
+        # 2. Création du DF pour le graphique (On renrenomme les colonnes pour l'affichage)
+        df_net_mw = self.df[available_cols].rename(columns=neighbors_map)
+
+        # 3. Lissage 7 jours (Pour la lisibilité)
         df_smooth = df_net_mw.rolling(window=168, center=True).mean()
         
         # --- Visualisation ---
         sns.set_theme(style="whitegrid")
-        fig, ax = plt.subplots(figsize=(14, 8)) # On crée l'objet 'ax' pour mieux contrôler
+        fig, ax = plt.subplots(figsize=(14, 8))
 
-        colors = {'Allemagne (DE)': 'black', 'France (FR)': 'blue', 'Italie (IT)': 'green', 'Autriche (AT)': 'red'}
+        colors = {
+            'Allemagne (DE)': 'black', 
+            'France (FR)': 'blue', 
+            'Italie (IT)': 'green', 
+            'Autriche (AT)': 'red'
+        }
         
+        # Plot des lignes
         for name in df_smooth.columns:
             ax.plot(df_smooth.index, df_smooth[name], label=name, color=colors.get(name, 'grey'), lw=1.5)
 
         # Ligne Zéro
         ax.axhline(0, color='black', linewidth=1, linestyle='--')
         
-        # Annotations (Positionnées intelligemment via 'transAxes')
-        # (0.98, 0.95) = Coin Haut Droit
+        # Annotations (Zone Export / Import)
         ax.text(0.98, 0.95, "EXPORT (Positif)\nLa Suisse VEND", transform=ax.transAxes, 
                 fontsize=11, color='green', fontweight='bold', ha='right', va='top', 
                 bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
         
-        # (0.98, 0.05) = Coin Bas Droit
         ax.text(0.98, 0.05, "IMPORT (Négatif)\nLa Suisse ACHÈTE", transform=ax.transAxes, 
                 fontsize=11, color='red', fontweight='bold', ha='right', va='bottom',
                 bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
@@ -61,9 +61,7 @@ class BorderAnalyzer:
         ax.set_title("Géopolitique Élec : Qui alimente la Suisse ? (Flux Nets Lissés 7j)", fontsize=16, fontweight='bold')
         ax.set_ylabel("Flux Net (MW) [+ Export / - Import]")
         
-        # Légende en haut à gauche (loc='upper left')
         ax.legend(loc='upper left', frameon=True)
         
         plt.tight_layout()
-        print("Graphique Flux Frontaliers généré.")
         plt.show()
