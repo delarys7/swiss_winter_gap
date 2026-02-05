@@ -71,4 +71,21 @@ class SwissGridLoader:
         else:
             df['Transit_MW'] = 0
 
+        # --- E. FINANCE & PRIX ---
+        # 1. Calcul du Prix Proxy (Moyenne Positif/Négatif)
+        col_price_pos = next((c for c in df.columns if "positive" in str(c).lower() and "preise" in str(c).lower()), None)
+        col_price_neg = next((c for c in df.columns if "negative" in str(c).lower() and "preise" in str(c).lower()), None)
+
+        # Moyenne des deux prix
+        price_proxy = (df[col_price_pos] + df[col_price_neg]) / 2
+        # Moyenne horaire
+        df['Price_EUR'] = price_proxy.resample('h').mean().fillna(method='ffill')
+
+        # 2. Calcul du Bilan Financier
+        # Revenu = (Volume Export - Volume Import) * Prix --- Estimation grossière
+        df['Net_Revenue_EUR'] = (df['Export_Total_MW'] - df['Import_Total_MW']) * df['Price_EUR']
+        
+        # 3. Cumul en Millions d'Euros
+        df['Revenue_Cumul_Million_EUR'] = df['Net_Revenue_EUR'].cumsum() / 1_000_000
+
         return df.dropna(subset=['Production_MW', 'Consumption_MW'])
