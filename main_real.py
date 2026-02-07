@@ -4,16 +4,18 @@ from src.visualizer import SwissGridVisualizer
 from src.border_analyzer import BorderAnalyzer
 from src.transit_analyzer import TransitAnalyzer
 from src.cost_analyzer import CostAnalyzer
-from src.adavanced_stats import AdvancedAnalyzer
+from src.advanced_stats import AdvancedAnalyzer
 import os
 
 def main():
     print("Démarrage Swiss Winter Gap & Border Analysis...")
     
-    file_name = 'swissgrid_2025.xlsx'
-    file_path = os.path.join('data', file_name)
+    file_swissgrid = 'swissgrid_2025.xlsx'
+    file_prices = 'SpotPrices_OpenData.xlsx'
+    filepath_swissgrid = os.path.join('data', file_swissgrid)
+    filepath_prices = os.path.join('data', file_prices)
     
-    loader = SwissGridLoader(file_path)
+    loader = SwissGridLoader(filepath_swissgrid, filepath_prices)
     df = loader.load_data()
     
     if df is not None:
